@@ -9,52 +9,56 @@ namespace MiscConsole
 {
     class ParseWordle
     {
-        static List<string> words, backup;
-        static readonly string inFile = "..\\..\\wordle.txt",
-            outFile = "..\\..\\guesses.txt",
+        static List<string> answers, guesses;
+        static readonly string ansFile = "..\\..\\wordle.txt",
+            guessFile = "..\\..\\guesses.txt",
             alphabet = "abcdefghijklmnopqrstuvwxyz";
         static string[] letters;
         static string required, exclude;
-        static bool writeBackup;
+        static bool writeGuesses;
 
         static void Main(string[] args)
         {
-            backup = new List<string>();
-            words = new List<string>();
-            backup.AddRange(File.ReadAllLines(inFile));
-            writeBackup = false;
+            guesses = new List<string>();
+            answers = new List<string>();
+            writeGuesses = false;
             while (true) {
+                //setup
+                answers.Clear();
+                guesses.Clear();
+                answers.AddRange(File.ReadAllLines(ansFile));
+                guesses.AddRange(answers);
+                guesses.AddRange(File.ReadAllLines(guessFile));
                 letters = new string[] { alphabet, alphabet, alphabet, alphabet, alphabet };
                 required = exclude = "";
-                words.Clear();
-                words.AddRange(backup);
-                for (int i = 0; i < 5 && words.Count > 1; i++) {
-                    Console.WriteLine(words.Count + " possible guesses");
-                    if (words.Count < 50)
-                        Console.WriteLine(string.Join(" ", words));
+                //game play
+                for (int i = 0; i < 5 && answers.Count > 1; i++) {
+                    Console.WriteLine(answers.Count + " possible answers");
+                    if (answers.Count < 50)
+                        Console.WriteLine(string.Join(" ", answers));
                     Frequency();
                     Console.Write("Enter guess: ");
                     Guess(Console.ReadLine().Split(' '));
                     Console.WriteLine();
                 }
-                if (words.Count == 0) Console.WriteLine("No answer.");
-                else Console.WriteLine("Answer: " + words[0]);
+                if (answers.Count == 0) Console.WriteLine("No answer.");
+                else Console.WriteLine("Answer: " + answers[0]);
                 Console.Write("Another game? (y/n): ");
                 if (Console.ReadLine() != "y")
                     break;
                 Console.WriteLine("\n");
             }
-            if (writeBackup)
-                File.WriteAllLines(inFile, backup);
+            if (writeGuesses)
+                File.WriteAllLines(guessFile, guesses);
         }
 
         static void Guess(string[] guess)
         {
             if (guess.Length != 2 || guess[0].Length != 5 || guess[1].Length != 5)
                 return;
-            if (!backup.Contains(guess[0])) {
-                backup.Add(guess[0]);
-                writeBackup = true;
+            if (!guesses.Contains(guess[0])) {
+                guesses.Add(guess[0]);
+                writeGuesses = true;
             }
             int k;
             for (int i = 0; i < 5; i++)
@@ -81,9 +85,9 @@ namespace MiscConsole
                         //    required += guess[0][i];
                         break;
                 }
-            Filter(words, required, letters, true);
+            Filter(answers, required, letters);
         }
-        static void Filter(List<string> words, string required, string[] letters, bool write)
+        static void Filter(List<string> words, string required, string[] letters)
         {
             bool removed;
             for (int i = 0; i < words.Count; i++) {
@@ -101,28 +105,25 @@ namespace MiscConsole
                             break;
                         }
             }
-            if (write)
-                File.WriteAllText(outFile, string.Join(" ", words));
         }
         static void Frequency()
         {
             Dictionary<char, int> letFreq = new Dictionary<char, int>();
             for (char c = 'a'; c <= 'z'; c++)
                 letFreq.Add(c, 0);
-            for (int i = 0; i < words.Count; i++)
+            for (int i = 0; i < answers.Count; i++)
                 for (int j = 0; j < 5; j++)
-                    letFreq[words[i][j]]++;
+                    letFreq[answers[i][j]]++;
             int k = 0;
             foreach (KeyValuePair<char,int> keyVal in letFreq.OrderByDescending(key => key.Value)) {
-                if (k++ >= 10 || (double)keyVal.Value / words.Count < .05) break;
-                Console.Write(keyVal.Key + ": " + ((double)keyVal.Value / words.Count * 20).ToString("g3") + "%  ");
+                if (k++ >= 10 || (double)keyVal.Value / answers.Count < .05) break;
+                Console.Write(keyVal.Key + ": " + ((double)keyVal.Value / answers.Count * 20).ToString("g3") + "%  ");
             }
             Console.WriteLine();
             Suggest(letFreq);
         }
         static void Suggest(Dictionary<char, int> letFreq)
         {
-            List<string> tempWord = new List<string>(backup);
             string greens = "";
             string[] tempLet = new string[5];
             Array.Copy(letters, tempLet, 5);
@@ -134,11 +135,10 @@ namespace MiscConsole
             for (int i = 0; i < 5; i++) 
                 foreach (char c in greens + exclude)
                     tempLet[i] = tempLet[i].Replace("" + c, "");
-            Filter(tempWord, "", tempLet, false);
-            IOrderedEnumerable<string> sorted = tempWord.OrderByDescending(word => {
+            IOrderedEnumerable<string> sorted = guesses.OrderByDescending(word => {
                 int count = 0;
                 for (int i = 0; i < word.Length; i++)
-                    if (word.IndexOf(word[i]) == i)
+                    if (word.IndexOf(word[i]) == i && tempLet[i].Contains(word[i]))
                         count += letFreq[word[i]];
                 return count;
             });
