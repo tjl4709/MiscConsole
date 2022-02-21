@@ -14,7 +14,7 @@ namespace MiscConsole
             outFile = "..\\..\\guesses.txt",
             alphabet = "abcdefghijklmnopqrstuvwxyz";
         static string[] letters;
-        static string required;
+        static string required, exclude;
         static bool writeBackup;
 
         static void Main(string[] args)
@@ -24,8 +24,9 @@ namespace MiscConsole
             backup.AddRange(File.ReadAllLines(inFile));
             writeBackup = false;
             while (true) {
-                words.Clear();
                 letters = new string[] { alphabet, alphabet, alphabet, alphabet, alphabet };
+                required = exclude = "";
+                words.Clear();
                 words.AddRange(backup);
                 for (int i = 0; i < 5 && words.Count > 1; i++) {
                     Console.WriteLine(words.Count + " possible guesses");
@@ -34,7 +35,6 @@ namespace MiscConsole
                     Frequency();
                     Console.Write("Enter guess: ");
                     Guess(Console.ReadLine().Split(' '));
-                    Filter();
                     Console.WriteLine();
                 }
                 if (words.Count == 0) Console.WriteLine("No answer.");
@@ -56,28 +56,34 @@ namespace MiscConsole
                 backup.Add(guess[0]);
                 writeBackup = true;
             }
-            required = "";
             int k;
             for (int i = 0; i < 5; i++)
                 switch(guess[1][i]) {
                     case 'n':       //check if the same letter has been marked g/y elsewhere in guess
-                        if ((k=guess[0].IndexOf(guess[0][i])) != i && (guess[1][k] != 'n') ||
-                            (k=guess[0].LastIndexOf(guess[0][i])) != i && (guess[1][k] != 'n'))
+                        if ((k = guess[0].IndexOf(guess[0][i])) != i && (guess[1][k] != 'n') ||
+                            (k = guess[0].LastIndexOf(guess[0][i])) != i && (guess[1][k] != 'n'))
                             letters[i] = letters[i].Replace("" + guess[0][i], "");
-                        else
+                        else {
+                            if (!exclude.Contains(guess[0][i]))
+                                exclude += guess[0][i];
                             for (int j = 0; j < 5; j++)
                                 letters[j] = letters[j].Replace("" + guess[0][i], "");
+                        }
                         break;
                     case 'y':
                         letters[i] = letters[i].Replace("" + guess[0][i], "");
-                        required += guess[0][i];
+                        if (!required.Contains(guess[0][i]))
+                            required += guess[0][i];
                         break;
                     case 'g':
                         letters[i] = "" + guess[0][i];
+                        //if (!required.Contains(guess[0][i]))
+                        //    required += guess[0][i];
                         break;
                 }
+            Filter(words, required, letters, true);
         }
-        static void Filter()
+        static void Filter(List<string> words, string required, string[] letters, bool write)
         {
             bool removed;
             for (int i = 0; i < words.Count; i++) {
@@ -95,7 +101,8 @@ namespace MiscConsole
                             break;
                         }
             }
-            File.WriteAllText(outFile, string.Join(" ", words));
+            if (write)
+                File.WriteAllText(outFile, string.Join(" ", words));
         }
         static void Frequency()
         {
@@ -107,9 +114,39 @@ namespace MiscConsole
                     letFreq[words[i][j]]++;
             int k = 0;
             foreach (KeyValuePair<char,int> keyVal in letFreq.OrderByDescending(key => key.Value)) {
-                if (k >= 10 || (double)keyVal.Value / words.Count < .05) break;
+                if (k++ >= 10 || (double)keyVal.Value / words.Count < .05) break;
                 Console.Write(keyVal.Key + ": " + ((double)keyVal.Value / words.Count * 20).ToString("g3") + "%  ");
-                k++;
+            }
+            Console.WriteLine();
+            Suggest(letFreq);
+        }
+        static void Suggest(Dictionary<char, int> letFreq)
+        {
+            List<string> tempWord = new List<string>(backup);
+            string greens = "";
+            string[] tempLet = new string[5];
+            Array.Copy(letters, tempLet, 5);
+            for (int i = 0; i < 5; i++) 
+                if (tempLet[i].Length == 1) {
+                    greens += tempLet[i];
+                    tempLet[i] = alphabet;
+                }
+            for (int i = 0; i < 5; i++) 
+                foreach (char c in greens + exclude)
+                    tempLet[i] = tempLet[i].Replace("" + c, "");
+            Filter(tempWord, "", tempLet, false);
+            IOrderedEnumerable<string> sorted = tempWord.OrderByDescending(word => {
+                int count = 0;
+                for (int i = 0; i < word.Length; i++)
+                    if (word.IndexOf(word[i]) == i)
+                        count += letFreq[word[i]];
+                return count;
+            });
+            Console.Write("Suggestions:");
+            int j = 0;
+            foreach (string word in sorted) {
+                if (j++ >= 10) break;
+                Console.Write(" " + word);
             }
             Console.WriteLine();
         }
