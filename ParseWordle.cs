@@ -59,8 +59,7 @@ namespace MiscConsole
                     }
                     if (answers.Count == 0) Console.WriteLine("No answer.");
                     else Console.WriteLine("Answer: " + answers[0]);
-                    Console.Write("Another game? (y/n): ");
-                    if (Console.ReadLine() != "y")
+                    if (!MiscConsole.Continue("Another game?"))
                         break;
                     Console.WriteLine("\n");
                 }
