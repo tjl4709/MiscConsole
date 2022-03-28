@@ -10,8 +10,11 @@ namespace MiscConsole
     class ParseWordle
     {
         public int MaxGuess = 6;
+        public Dictionary<char, int> LetFreq;
+        public int NumAnswers { get { return answers != null ? answers.Count : 0; } }
+        public List<string> answers;
 
-        List<string> answers, guesses;
+        List<string> guesses;
         readonly string ansFile = "..\\..\\wordle.txt",
             guessFile = "..\\..\\guesses.txt",
             alphabet = "abcdefghijklmnopqrstuvwxyz";
@@ -20,10 +23,17 @@ namespace MiscConsole
         string exclude;
         bool writeGuesses;
 
-        public void Main(string[] args)
+        public ParseWordle()
         {
             guesses = new List<string>();
             answers = new List<string>();
+            LetFreq = new Dictionary<char, int>(26);
+            for (char c = 'a'; c <= 'z'; c++)
+                LetFreq.Add(c, 0);
+        }
+
+        public void Main(string[] args)
+        {
             if (args.Length >= 2 && args[1].ToLower() == "test") {
                 List<string> words = new List<string>(File.ReadAllLines(ansFile));
                 StreamWriter sw = new StreamWriter(File.OpenWrite("..\\..\\testing.txt"));
@@ -70,7 +80,7 @@ namespace MiscConsole
                     File.WriteAllLines(guessFile, guesses);
             }
         }
-        private void Setup()
+        public void Setup()
         {
             answers.Clear();
             guesses.Clear();
@@ -101,7 +111,7 @@ namespace MiscConsole
             return comp;
         }
 
-        private void Guess(string[] guess)
+        public void Guess(string[] guess)
         {
             if (guess.Length != 2 || guess[0].Length != 5 || guess[1].Length != 5)
                 return;
@@ -161,23 +171,22 @@ namespace MiscConsole
                     }
             }
         }
-        private string Frequency(bool print)
+        public string Frequency(bool print, bool suggest = true)
         {
-            Dictionary<char, int> letFreq = new Dictionary<char, int>();
             for (char c = 'a'; c <= 'z'; c++)
-                letFreq.Add(c, 0);
+                LetFreq[c] = 0;
             for (int i = 0; i < answers.Count; i++)
                 for (int j = 0; j < 5; j++)
-                    letFreq[answers[i][j]]++;
+                    LetFreq[answers[i][j]]++;
             if (print) {
                 int k = 0;
-                foreach (KeyValuePair<char, int> keyVal in letFreq.OrderByDescending(key => key.Value)) {
+                foreach (KeyValuePair<char, int> keyVal in LetFreq.OrderByDescending(key => key.Value)) {
                     if (k++ >= 10 || (double)keyVal.Value / answers.Count < .05) break;
                     Console.Write(keyVal.Key + ": " + ((double)keyVal.Value / answers.Count * 20).ToString("g3") + "%  ");
                 }
                 Console.WriteLine();
             }
-            return Suggest(letFreq, print);
+            return suggest ? Suggest(LetFreq, print) : null;
         }
         private string Suggest(Dictionary<char, int> letFreq, bool print)
         {
