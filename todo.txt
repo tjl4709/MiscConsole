@@ -1,0 +1,3 @@
+wordle:
+-------
+* add ability to play quordle

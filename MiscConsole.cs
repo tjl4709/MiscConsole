@@ -15,6 +15,7 @@ namespace MiscConsole
             } else
                 switch (args[0].ToLower()) {
                     case "wordle": new ParseWordle().Main(args); break;
+                    case "quordle": new Quordle().Main(args); break;
                     case "time": new TimeCalculator().Main(args); break;
                     default: Console.WriteLine("Unrecognized program name."); break;
                 }
@@ -22,7 +23,7 @@ namespace MiscConsole
         }
         public static bool Continue(string msg)
         {
-            Console.Write(msg + " (y/n):");
+            Console.Write(msg + " (y/n): ");
             while (true) {
                 string str = Console.ReadLine().Trim().ToLower();
                 if (str == "yes" || str == "y")

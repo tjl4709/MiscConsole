@@ -46,6 +46,7 @@
     <Compile Include="MiscConsole.cs" />
     <Compile Include="ParseWordle.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Quordle.cs" />
     <Compile Include="TimeCalculator.cs" />
   </ItemGroup>
   <ItemGroup>

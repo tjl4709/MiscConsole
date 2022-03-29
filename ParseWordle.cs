@@ -9,18 +9,31 @@ namespace MiscConsole
 {
     class ParseWordle
     {
-        List<string> answers, guesses;
+        public int MaxGuess = 6;
+        public Dictionary<char, int> LetFreq;
+        public int NumAnswers { get { return answers != null ? answers.Count : 0; } }
+        public List<string> answers;
+
+        List<string> guesses;
         readonly string ansFile = "..\\..\\wordle.txt",
             guessFile = "..\\..\\guesses.txt",
             alphabet = "abcdefghijklmnopqrstuvwxyz";
         string[] letters;
-        string required, exclude;
+        byte[] required;
+        string exclude;
         bool writeGuesses;
 
-        public void Main(string[] args)
+        public ParseWordle()
         {
             guesses = new List<string>();
             answers = new List<string>();
+            LetFreq = new Dictionary<char, int>(26);
+            for (char c = 'a'; c <= 'z'; c++)
+                LetFreq.Add(c, 0);
+        }
+
+        public void Main(string[] args)
+        {
             if (args.Length >= 2 && args[1].ToLower() == "test") {
                 List<string> words = new List<string>(File.ReadAllLines(ansFile));
                 StreamWriter sw = new StreamWriter(File.OpenWrite("..\\..\\testing.txt"));
@@ -48,7 +61,7 @@ namespace MiscConsole
                 writeGuesses = false;
                 while (true) {
                     Setup();
-                    for (int i = 0; i < 5 && answers.Count > 1; i++) {
+                    for (int i = 0; i < MaxGuess - 1 && answers.Count > 1; i++) {
                         Console.WriteLine(answers.Count + " possible answers");
                         if (answers.Count < 50)
                             Console.WriteLine(string.Join(" ", answers));
@@ -67,15 +80,18 @@ namespace MiscConsole
                     File.WriteAllLines(guessFile, guesses);
             }
         }
-        private void Setup()
+        public void Setup()
         {
             answers.Clear();
             guesses.Clear();
             answers.AddRange(File.ReadAllLines(ansFile));
-            guesses.AddRange(answers);
             guesses.AddRange(File.ReadAllLines(guessFile));
+            for (int i = 0; i < answers.Count; i++)
+                if (!guesses.Contains(answers[i]))
+                    guesses.Add(answers[i]);
             letters = new string[] { alphabet, alphabet, alphabet, alphabet, alphabet };
-            required = exclude = "";
+            required = new byte[26];
+            exclude = "";
         }
         private string Compare(string word, string guess)
         {
@@ -95,15 +111,11 @@ namespace MiscConsole
             return comp;
         }
 
-        private void Guess(string[] guess)
+        public void Guess(string[] guess)
         {
             if (guess.Length != 2 || guess[0].Length != 5 || guess[1].Length != 5)
                 return;
-            if (!guesses.Contains(guess[0])) {
-                guesses.Add(guess[0]);
-                writeGuesses = true;
-            }
-            int k;
+            int k, cnt;
             for (int i = 0; i < 5; i++)
                 switch(guess[1][i]) {
                     case 'n':       //check if the same letter has been marked g/y elsewhere in guess
@@ -119,19 +131,22 @@ namespace MiscConsole
                         break;
                     case 'y':
                         letters[i] = letters[i].Replace("" + guess[0][i], "");
-                        if (!required.Contains(guess[0][i]))
-                            required += guess[0][i];
+                        cnt = 0;
+                        for (int j = 0; j < 5; j++)
+                            if (guess[0][j] == guess[0][i] && guess[1][j] != 'n')
+                                cnt++;
+                        if (cnt > required[guess[0][i] - 'a'])
+                            required[guess[0][i] - 'a'] = (byte)cnt;
                         break;
                     case 'g':
                         letters[i] = "" + guess[0][i];
-                        //if (!required.Contains(guess[0][i]))
-                        //    required += guess[0][i];
                         break;
                 }
             Filter(answers, required, letters);
         }
-        private void Filter(List<string> words, string required, string[] letters)
+        private void Filter(List<string> words, byte[] required, string[] letters)
         {
+            byte cnt;
             bool removed;
             for (int i = 0; i < words.Count; i++) {
                 removed = false;
@@ -142,30 +157,36 @@ namespace MiscConsole
                         break;
                     }
                 if (!removed)
-                    for (int j = 0; j < required.Length; j++)
-                        if (!words[i].Contains(required[j])) {
+                    for (char c = 'a'; c <= 'z'; c++) {
+                        if (required[c - 'a'] == 0)
+                            continue;
+                        cnt = 0;
+                        for (byte j = 0; j < 5; j++)
+                            if (words[i][j] == c)
+                                cnt++;
+                        if (cnt < required[c - 'a']) {
                             words.RemoveAt(i--);
                             break;
                         }
+                    }
             }
         }
-        private string Frequency(bool print)
+        public string Frequency(bool print, bool suggest = true)
         {
-            Dictionary<char, int> letFreq = new Dictionary<char, int>();
             for (char c = 'a'; c <= 'z'; c++)
-                letFreq.Add(c, 0);
+                LetFreq[c] = 0;
             for (int i = 0; i < answers.Count; i++)
                 for (int j = 0; j < 5; j++)
-                    letFreq[answers[i][j]]++;
+                    LetFreq[answers[i][j]]++;
             if (print) {
                 int k = 0;
-                foreach (KeyValuePair<char, int> keyVal in letFreq.OrderByDescending(key => key.Value)) {
+                foreach (KeyValuePair<char, int> keyVal in LetFreq.OrderByDescending(key => key.Value)) {
                     if (k++ >= 10 || (double)keyVal.Value / answers.Count < .05) break;
                     Console.Write(keyVal.Key + ": " + ((double)keyVal.Value / answers.Count * 20).ToString("g3") + "%  ");
                 }
                 Console.WriteLine();
             }
-            return Suggest(letFreq, print);
+            return suggest ? Suggest(LetFreq, print) : null;
         }
         private string Suggest(Dictionary<char, int> letFreq, bool print)
         {

@@ -67,11 +67,11 @@ namespace MiscConsole
                         }
                         if (int.TryParse(time, out i))
                             switch (unit) {
-                                case 'y': curr[0] = i; unit = 'd'; break;
-                                case 'd': curr[1] = i; unit = 'h'; break;
-                                case 'h': curr[2] = i; unit = 'm'; break;
-                                case 'm': curr[3] = i; unit = 's'; break;
-                                case 's': curr[4] = i; unit = 'u'; break;
+                                case 'y': curr[0] += i; unit = 'd'; break;
+                                case 'd': curr[1] += i; unit = 'h'; break;
+                                case 'h': curr[2] += i; unit = 'm'; break;
+                                case 'm': curr[3] += i; unit = 's'; break;
+                                case 's': curr[4] += i; unit = 'u'; break;
                                 default: /*'u'*/ curr[5] = i; break;
                             }
                     } while (times.Length > 0);
