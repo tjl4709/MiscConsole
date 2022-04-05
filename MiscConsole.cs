@@ -11,14 +11,21 @@ namespace MiscConsole
         static void Main(string[] args)
         {
             if (args.Length == 0) {
-                Console.WriteLine("No program specified. Usage:\nprogram_name [program_options]");
-            } else
+                Console.WriteLine("No program specified. Available programs: wordle quordle time");
+                Console.Write("Choose one of the above programs: ");
+                args = new string[] { Console.ReadLine() };
+            }
+            do {
                 switch (args[0].ToLower()) {
                     case "wordle": new ParseWordle().Main(args); break;
                     case "quordle": new Quordle().Main(args); break;
                     case "time": new TimeCalculator().Main(args); break;
                     default: Console.WriteLine("Unrecognized program name."); break;
                 }
+                Console.Write("Would you like to run another program (wordle quordle time) or exit: ");
+                args[0] = Console.ReadLine();
+            } while (args[0] != "exit");
+            Console.Write("Press any key to exit . . .");
             Console.ReadKey();
         }
         public static bool Continue(string msg)
