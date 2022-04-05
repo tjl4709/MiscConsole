@@ -11,22 +11,21 @@ namespace MiscConsole
     {
         public int MaxGuess = 6;
         public Dictionary<char, int> LetFreq;
-        public int NumAnswers { get { return answers != null ? answers.Count : 0; } }
-        public List<string> answers;
+        public int NumAnswers { get { return Answers != null ? Answers.Count : 0; } }
+        public List<string> Answers;
 
         List<string> guesses;
-        readonly string ansFile = "..\\..\\wordle.txt",
+        const string ansFile = "..\\..\\wordle.txt",
             guessFile = "..\\..\\guesses.txt",
             alphabet = "abcdefghijklmnopqrstuvwxyz";
-        string[] letters;
+        string[] letters, exLet;
         byte[] required;
         string exclude;
-        bool writeGuesses;
 
-        public ParseWordle()
+        public ParseWordle(List<string> guess = null)
         {
-            guesses = new List<string>();
-            answers = new List<string>();
+            guesses = guess;
+            Answers = new List<string>();
             LetFreq = new Dictionary<char, int>(26);
             for (char c = 'a'; c <= 'z'; c++)
                 LetFreq.Add(c, 0);
@@ -46,11 +45,11 @@ namespace MiscConsole
                     Setup();
                     guess[1] = Compare(word, guess[0] = Frequency(false));
                     for (i = 0; i < 6 && guess[0] != word; i++) {
-                        sw.WriteLine($"{guess[0]} {guess[1]} {answers.Count}");
+                        sw.WriteLine($"{guess[0]} {guess[1]} {Answers.Count}");
                         Guess(guess);
                         guess[1] = Compare(word, guess[0] = Frequency(false));
                     }
-                    sw.WriteLine($"{guess[0]} {guess[1]} {answers.Count}");
+                    sw.WriteLine($"{guess[0]} {guess[1]} {Answers.Count}");
                     sw.WriteLine();
                     numTries[i]++;
                 }
@@ -58,37 +57,36 @@ namespace MiscConsole
                 sw.Close();
                 Console.WriteLine("Testing complete!");
             } else {
-                writeGuesses = false;
                 while (true) {
                     Setup();
-                    for (int i = 0; i < MaxGuess - 1 && answers.Count > 1; i++) {
-                        Console.WriteLine(answers.Count + " possible answers");
-                        if (answers.Count < 50)
-                            Console.WriteLine(string.Join(" ", answers));
+                    for (int i = 0; i < MaxGuess - 1 && Answers.Count > 1; i++) {
+                        Console.WriteLine(Answers.Count + " possible answers");
+                        if (Answers.Count < 50)
+                            Console.WriteLine(string.Join(" ", Answers));
                         Frequency(true);
                         Console.Write("Enter guess: ");
                         Guess(Console.ReadLine().Split(' '));
                         Console.WriteLine();
                     }
-                    if (answers.Count == 0) Console.WriteLine("No answer.");
-                    else Console.WriteLine("Answer: " + answers[0]);
+                    if (Answers.Count == 0) Console.WriteLine("No answer.");
+                    else Console.WriteLine("Answer: " + Answers[0]);
                     if (!MiscConsole.Continue("Another game?"))
                         break;
                     Console.WriteLine("\n");
                 }
-                if (writeGuesses)
-                    File.WriteAllLines(guessFile, guesses);
             }
         }
         public void Setup()
         {
-            answers.Clear();
-            guesses.Clear();
-            answers.AddRange(File.ReadAllLines(ansFile));
-            guesses.AddRange(File.ReadAllLines(guessFile));
-            for (int i = 0; i < answers.Count; i++)
-                if (!guesses.Contains(answers[i]))
-                    guesses.Add(answers[i]);
+            Answers.Clear();
+            Answers.AddRange(File.ReadAllLines(ansFile));
+            if (guesses == null) {
+                guesses = new List<string>();
+                guesses.AddRange(File.ReadAllLines(guessFile));
+                for (int i = 0; i < Answers.Count; i++)
+                    if (!guesses.Contains(Answers[i]))
+                        guesses.Add(Answers[i]);
+            }
             letters = new string[] { alphabet, alphabet, alphabet, alphabet, alphabet };
             required = new byte[26];
             exclude = "";
@@ -142,7 +140,7 @@ namespace MiscConsole
                         letters[i] = "" + guess[0][i];
                         break;
                 }
-            Filter(answers, required, letters);
+            Filter(Answers, required, letters);
         }
         private void Filter(List<string> words, byte[] required, string[] letters)
         {
@@ -175,14 +173,14 @@ namespace MiscConsole
         {
             for (char c = 'a'; c <= 'z'; c++)
                 LetFreq[c] = 0;
-            for (int i = 0; i < answers.Count; i++)
+            for (int i = 0; i < Answers.Count; i++)
                 for (int j = 0; j < 5; j++)
-                    LetFreq[answers[i][j]]++;
+                    LetFreq[Answers[i][j]]++;
             if (print) {
                 int k = 0;
                 foreach (KeyValuePair<char, int> keyVal in LetFreq.OrderByDescending(key => key.Value)) {
-                    if (k++ >= 10 || (double)keyVal.Value / answers.Count < .05) break;
-                    Console.Write(keyVal.Key + ": " + ((double)keyVal.Value / answers.Count * 20).ToString("g3") + "%  ");
+                    if (k++ >= 10 || (double)keyVal.Value / Answers.Count < .05) break;
+                    Console.Write(keyVal.Key + ": " + ((double)keyVal.Value / Answers.Count * 20).ToString("g3") + "%  ");
                 }
                 Console.WriteLine();
             }
@@ -190,26 +188,8 @@ namespace MiscConsole
         }
         private string Suggest(Dictionary<char, int> letFreq, bool print)
         {
-            string greens = "";
-            string[] tempLet = new string[5];
-            Array.Copy(letters, tempLet, 5);
-            for (int i = 0; i < 5; i++) 
-                if (tempLet[i].Length == 1) {
-                    greens += tempLet[i];
-                    tempLet[i] = alphabet;
-                }
-            for (int i = 0; i < 5; i++) 
-                foreach (char c in greens + exclude)
-                    tempLet[i] = tempLet[i].Replace("" + c, "");
-            IOrderedEnumerable<string> sorted = guesses.OrderByDescending(word => {
-                int count = 0;
-                for (int i = 0; i < word.Length; i++)
-                    if (word.IndexOf(word[i]) == i && tempLet[i].Contains(word[i]))
-                        count += letFreq[word[i]];
-                if (answers.Contains(word))
-                    count += 5;
-                return count;
-            });
+            ExcludeLetters();
+            IOrderedEnumerable<string> sorted = guesses.OrderByDescending(ScoreWord);
             if (print) {
                 Console.Write("Suggestions:");
                 int j = 0;
@@ -220,6 +200,35 @@ namespace MiscConsole
                 Console.WriteLine();
             }
             return sorted.ElementAt(0);
+        }
+
+        public string[] ExcludeLetters()
+        {
+            string greens = "";
+            exLet = new string[5];
+            Array.Copy(letters, exLet, 5);
+            for (int i = 0; i < 5; i++) 
+                if (exLet[i].Length == 1) {
+                    greens += exLet[i];
+                    exLet[i] = alphabet;
+                }
+            for (int i = 0; i < 5; i++) 
+                foreach (char c in greens + exclude)
+                    exLet[i] = exLet[i].Replace("" + c, "");
+            return exLet;
+        }
+        public int ScoreWord(string word)
+        {
+            int count = 0;
+            bool[] letChk = new bool[26];
+            for (int i = 0; i < word.Length; i++)
+                if (!letChk[word[i] - 'a'] && exLet[i].Contains(word[i])) {
+                    count += LetFreq[word[i]];
+                    letChk[word[i] - 'a'] = true;
+                }
+            if (Answers.Contains(word))
+                count += 5;
+            return count;
         }
     }
 }
